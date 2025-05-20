@@ -2,133 +2,169 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>GOGCC</title>
+    <title>GOGCC - 달력</title>
     <style>
         body { font-family: Arial, sans-serif; text-align: center; padding: 20px; background-color: #f5f5f5; }
         .container { max-width: 800px; margin: 0 auto; }
         h1 { color: #333; }
-        .calendar { display: inline-block; text-align: left; }
-        .calendar table { border-collapse: collapse; margin: 20px auto; background-color: white; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        .calendar th, .calendar td { width: 60px; height: 60px; text-align: center; border: 1px solid #ddd; vertical-align: top; }
+        .calendar { width: 100%; border-collapse: collapse; margin: 20px 0; background-color: white; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .calendar th, .calendar td { border: 1px solid #ddd; padding: 10px; text-align: center; }
         .calendar th { background-color: #4CAF50; color: white; }
-        .calendar .weekday { background-color: #ffffff; }
-        .calendar .weekend { background-color: #f0f0f0; }
-        .calendar .holiday { background-color: #ffcccb; }
-        .calendar .event { font-weight: bold; color: #d81b60; font-size: 12px; }
-        select, button, a { padding: 5px; margin: 5px; border-radius: 3px; }
-        button { background-color: #4CAF50; color: white; border: none; cursor: pointer; }
-        button:hover { background-color: #45a049; }
+        .calendar td { height: 80px; vertical-align: top; }
+        .weekend { color: gray; }
+        .holiday { background-color: #ffe6e6; }
+        .today { background-color: #e0f7fa; }
+        .controls { margin: 10px 0; }
+        .controls select, .controls button { padding: 8px; margin: 0 5px; border-radius: 3px; border: 1px solid #ddd; }
+        .controls button { background-color: #4CAF50; color: white; border: none; cursor: pointer; }
+        .controls button:hover { background-color: #45a049; }
+        .event-list { text-align: left; max-width: 400px; margin: 20px auto; padding: 15px; background-color: white; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
         a { text-decoration: none; color: #4CAF50; }
         a:hover { color: #45a049; }
-        #events { text-align: left; max-width: 400px; margin: 20px auto; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>GOGCC</h1>
-        <div>
-            <label>연도:</label>
-            <select id="year"></select>
-            <label>월:</label>
-            <select id="month"></select>
-            <button onclick="displayCalendar()">달력 보기</button>
-            <a href="manage.html">일정 및 공휴일 관리</a>
+        <h1>GOGCC - 달력</h1>
+        <a href="manage.html">일정 및 공휴일 관리</a>
+        <div class="controls">
+            <button onclick="changeMonth(-1)">◄</button>
+            <select id="year"></select> 년
+            <select id="month"></select> 월
+            <button onclick="changeMonth(1)">►</button>
         </div>
-        <div class="calendar" id="calendar"></div>
-        <div id="events">일정 목록:<br></div>
+        <table class="calendar" id="calendar">
+            <thead>
+                <tr>
+                    <th>일</th><th>월</th><th>화</th><th>수</th><th>목</th><th>금</th><th>토</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+        <div class="event-list" id="eventList">
+            <h3>일정 목록</h3>
+        </div>
     </div>
 
     <script>
-        const today = new Date();
         let events = JSON.parse(localStorage.getItem('events')) || {};
-        let holidays = JSON.parse(localStorage.getItem('holidays')) || {
-            '2025-01-01': '신정',
-            '2025-01-28': '설날',
-            '2025-01-29': '설날',
-            '2025-01-30': '설날',
-            '2025-03-01': '삼일절',
-            '2025-03-03': '삼일절 대체공휴일',
-            '2025-05-05': '어린이날',
-            '2025-05-06': '대체공휴일',
-            '2025-06-06': '현충일',
-            '2025-08-15': '광복절',
-            '2025-10-03': '개천절',
-            '2025-10-05': '추석',
-            '2025-10-06': '추석',
-            '2025-10-07': '추석',
-            '2025-10-08': '추석 대체공휴일',
-            '2025-10-09': '한글날',
-            '2025-12-25': '크리스마스',
-            '2026-01-01': '신정',
-            '2026-02-16': '설날',
-            '2026-02-17': '설날',
-            '2026-02-18': '설날',
-            '2026-03-01': '삼일절'
-        };
-        localStorage.setItem('holidays', JSON.stringify(holidays));
+        let holidays = JSON.parse(localStorage.getItem('holidays')) || {};
+        let currentYear = 2025;
+        let currentMonth = 5; // 1~12
 
-        // 연도/월 드롭다운, 기본: 2025년 5월
-        const yearSelect = document.getElementById('year');
-        const monthSelect = document.getElementById('month');
-        for (let y = 2025; y <= 2026; y++) {
-            yearSelect.innerHTML += `<option value="${y}" ${y === 2025 ? 'selected' : ''}>${y}</option>`;
-        }
-        for (let m = 1; m <= 12; m++) {
-            monthSelect.innerHTML += `<option value="${m}" ${m === 5 ? 'selected' : ''}>${m}</option>`;
-        }
-
-        function displayCalendar() {
-            const year = parseInt(yearSelect.value);
-            const month = parseInt(monthSelect.value) - 1;
-            const firstDay = new Date(year, month, 1);
-            const lastDay = new Date(year, month + 1, 0);
-            const daysInMonth = lastDay.getDate();
-            const startDay = firstDay.getDay();
-
-            let html = '<table><tr><th>일</th><th>월</th><th>화</th><th>수</th><th>목</th><th>금</th><th>토</th></tr><tr>';
-            for (let i = 0; i < startDay; i++) {
-                html += '<td></td>';
+        function populateSelectors() {
+            const yearSelect = document.getElementById('year');
+            const monthSelect = document.getElementById('month');
+            yearSelect.innerHTML = '';
+            monthSelect.innerHTML = '';
+            for (let y = 2020; y <= 2030; y++) {
+                yearSelect.innerHTML += `<option value="${y}" ${y === currentYear ? 'selected' : ''}>${y}</option>`;
             }
-            for (let day = 1; day <= daysInMonth; day++) {
-                const date = new Date(year, month, day);
-                const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                let cellClass = '';
+            for (let m = 1; m <= 12; m++) {
+                monthSelect.innerHTML += `<option value="${m}" ${m === currentMonth ? 'selected' : ''}>${m}</option>`;
+            }
+        }
+
+        function changeMonth(delta) {
+            currentMonth += delta;
+            if (currentMonth < 1) {
+                currentMonth = 12;
+                currentYear--;
+                if (currentYear < 2020) currentYear = 2020;
+            } else if (currentMonth > 12) {
+                currentMonth = 1;
+                currentYear++;
+                if (currentYear > 2030) currentYear = 2030;
+            }
+            populateSelectors();
+            generateCalendar();
+        }
+
+        function generateCalendar() {
+            const tbody = document.querySelector('#calendar tbody');
+            tbody.innerHTML = '';
+            const firstDay = new Date(currentYear, currentMonth - 1, 1);
+            const lastDay = new Date(currentYear, currentMonth, 0);
+            let date = 1;
+            let row = document.createElement('tr');
+
+            // 첫 주 빈칸
+            for (let i = 0; i < firstDay.getDay(); i++) {
+                row.innerHTML += '<td></td>';
+            }
+
+            // 날짜 채우기
+            while (date <= lastDay.getDate()) {
+                if (row.children.length === 7) {
+                    tbody.appendChild(row);
+                    row = document.createElement('tr');
+                }
+                const currentDate = new Date(currentYear, currentMonth - 1, date);
+                const dateStr = currentDate.toISOString().split('T')[0];
+                let className = '';
+                if (currentDate.getDay() === 0 || currentDate.getDay() === 6) {
+                    className += 'weekend';
+                }
                 if (dateStr in holidays) {
-                    cellClass = 'holiday';
-                } else if (date.getDay() === 0 || date.getDay() === 6) {
-                    cellClass = 'weekend';
-                } else {
-                    cellClass = 'weekday';
+                    className += (className ? ' ' : '') + 'holiday';
                 }
-                let eventText = dateStr in holidays ? `<br><span class="event">${holidays[dateStr]}</span>` : '';
-                for (let schedule in events) {
-                    const event = events[schedule].find(e => e.date === dateStr);
-                    if (event) {
-                        eventText += `<br><span class="event">${event.title} (${schedule})</span>`;
-                    }
+                const today = new Date();
+                if (date === today.getDate() && currentMonth === today.getMonth() + 1 && currentYear === today.getFullYear()) {
+                    className += (className ? ' ' : '') + 'today';
                 }
-                html += `<td class="${cellClass}">${day}${eventText}</td>`;
-                if ((startDay + day) % 7 === 0) {
-                    html += '</tr><tr>';
-                }
+                row.innerHTML += `<td class="${className}">${date}<br>${getEventsForDate(dateStr)}</td>`;
+                date++;
             }
-            html += '</tr></table>';
-            document.getElementById('calendar').innerHTML = html;
 
-            // 일정 목록 표시
-            let eventsText = '일정 목록:<br>';
+            // 마지막 주 빈칸
+            while (row.children.length < 7) {
+                row.innerHTML += '<td></td>';
+            }
+            tbody.appendChild(row);
+
+            // 일정 목록
+            const eventList = document.getElementById('eventList');
+            let eventHtml = '<h3>일정 목록</h3>';
+            const monthEvents = [];
             for (let schedule in events) {
                 events[schedule].forEach(event => {
-                    if (event.date.startsWith(`${year}-${String(month + 1).padStart(2, '0')}`)) {
-                        eventsText += `${event.date} (${schedule}): ${event.title}<br>`;
+                    if (event.date.startsWith(`${currentYear}-${currentMonth.toString().padStart(2, '0')}`)) {
+                        monthEvents.push({ date: event.date, title: `${schedule}: ${event.title}` });
                     }
                 });
             }
-            document.getElementById('events').innerHTML = eventsText;
+            monthEvents.sort((a, b) => a.date.localeCompare(b.date));
+            monthEvents.forEach(event => {
+                eventHtml += `<div>${event.date}: ${event.title}</div>`;
+            });
+            eventList.innerHTML = eventHtml;
         }
 
-        // 초기 달력 표시
-        displayCalendar();
+        function getEventsForDate(dateStr) {
+            let eventStr = '';
+            for (let schedule in events) {
+                events[schedule].forEach(event => {
+                    if (event.date === dateStr) {
+                        eventStr += `<div>${schedule}: ${event.title}</div>`;
+                    }
+                });
+            }
+            return eventStr;
+        }
+
+        // 이벤트 리스너
+        document.getElementById('year').addEventListener('change', function() {
+            currentYear = parseInt(this.value);
+            generateCalendar();
+        });
+        document.getElementById('month').addEventListener('change', function() {
+            currentMonth = parseInt(this.value);
+            generateCalendar();
+        });
+
+        // 초기 설정
+        populateSelectors();
+        generateCalendar();
     </script>
 </body>
 </html>
