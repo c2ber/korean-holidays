@@ -7,11 +7,10 @@
         body { font-family: Arial, sans-serif; text-align: center; padding: 20px; background-color: #f5f5f5; }
         .container { max-width: 800px; margin: 0 auto; }
         h1 { color: #333; }
-        .calendar { width: 100%; max-width: 700px; border-collapse: collapse; margin: 20px auto; background-color: white; box-shadow: 0 2px 5px rgba(0,0,0,0.1); table-layout: fixed; }
-        .calendar th, .calendar td { border: 1px solid #ddd; padding: 8px; text-align: center; vertical-align: top; }
-        .calendar th { background-color: #4CAF50; color: white; width: 100%; }
-        .calendar td { width: 100%; min-height: 100px; height: auto; box-sizing: border-box; }
-        .calendar td > div { font-size: 12px; word-wrap: break-word; overflow-wrap: break-word; white-space: normal; }
+        .calendar { width: 100%; border-collapse: collapse; margin: 20px 0; background-color: white; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .calendar th, .calendar td { border: 1px solid #ddd; padding: 10px; text-align: center; }
+        .calendar th { background-color: #4CAF50; color: white; }
+        .calendar td { height: 80px; vertical-align: top; }
         .holiday { background-color: #ffe6e6; } /* 공휴일, 일요일 */
         .saturday { background-color: #e0f7fa; } /* 토요일 */
         .today { background-color: #e6ffe6; } /* 오늘 */
