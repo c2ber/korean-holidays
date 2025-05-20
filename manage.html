@@ -15,6 +15,7 @@
         a:hover { color: #45a049; }
         .schedule-list div, .holiday-list div { margin: 10px 0; }
         .schedule-list input { width: 100px; }
+        .note { font-size: 12px; color: #555; }
     </style>
 </head>
 <body>
@@ -23,6 +24,7 @@
         <a href="index.html">달력으로 돌아가기</a>
         <div class="form">
             <h3>일정 추가</h3>
+            <p class="note">일정은 브라우저에 자동 저장됩니다. GitHub에 저장하려면 내보내기 후 업로드하세요.</p>
             <label>일정 제목: <input type="text" id="scheduleName" placeholder="예: 프로젝트 A"></label><br>
             <label>시작 날짜: <input type="date" id="startDate" value="2025-05-16"></label><br>
             <label>종료 날짜: <input type="date" id="endDate" value="2026-03-31"></label><br>
@@ -41,6 +43,7 @@
         </div>
         <div class="form">
             <h3>공휴일 추가</h3>
+            <p class="note">공휴일은 브라우저에 자동 저장됩니다. GitHub에 저장하려면 내보내기 후 업로드하세요.</p>
             <label>공휴일 날짜: <input type="date" id="holidayDate"></label><br>
             <label>공휴일 이름: <input type="text" id="holidayName" placeholder="예: 선거일"></label><br>
             <button onclick="addHoliday()">공휴일 추가</button>
@@ -162,7 +165,8 @@
         function displayHolidays() {
             const holidayList = document.getElementById('holidayList');
             let html = '<h3>등록된 공휴일</h3>';
-            for (let date in holidays) {
+            const sortedHolidays = Object.keys(holidays).sort();
+            for (let date of sortedHolidays) {
                 html += `<div>${date}: ${holidays[date]} <button onclick="deleteHoliday('${date}')">삭제</button></div>`;
             }
             holidayList.innerHTML = html;
