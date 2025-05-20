@@ -11,9 +11,9 @@
         .calendar th, .calendar td { border: 1px solid #ddd; padding: 10px; text-align: center; }
         .calendar th { background-color: #4CAF50; color: white; }
         .calendar td { height: 80px; vertical-align: top; }
-        .holiday { background-color: #ffe6e6; } /* 공휴일, 일요일 */
-        .saturday { background-color: #e0f7fa; } /* 토요일 */
-        .today { background-color: #e6ffe6; } /* 오늘 */
+        .weekend { color: gray; }
+        .holiday { background-color: #ffe6e6; }
+        .today { background-color: #e0f7fa; }
         .controls { margin: 10px 0; }
         .controls select, .controls button { padding: 8px; margin: 0 5px; border-radius: 3px; border: 1px solid #ddd; }
         .controls button { background-color: #4CAF50; color: white; border: none; cursor: pointer; }
@@ -102,21 +102,17 @@
                 const currentDate = new Date(currentYear, currentMonth - 1, date);
                 const dateStr = currentDate.toISOString().split('T')[0];
                 let className = '';
-                let displayText = `<div>${date}`;
+                if (currentDate.getDay() === 0 || currentDate.getDay() === 6) {
+                    className += 'weekend';
+                }
                 if (dateStr in holidays) {
-                    className += 'holiday';
-                    displayText += `<br>(${holidays[dateStr]})`;
-                } else if (currentDate.getDay() === 6) {
-                    className += 'saturday';
-                } else if (currentDate.getDay() === 0) {
-                    className += 'holiday';
+                    className += (className ? ' ' : '') + 'holiday';
                 }
                 const today = new Date();
                 if (date === today.getDate() && currentMonth === today.getMonth() + 1 && currentYear === today.getFullYear()) {
                     className += (className ? ' ' : '') + 'today';
                 }
-                displayText += `</div>${getEventsForDate(dateStr)}`;
-                row.innerHTML += `<td class="${className}">${displayText}</td>`;
+                row.innerHTML += `<td class="${className}">${date}<br>${getEventsForDate(dateStr)}</td>`;
                 date++;
             }
 
@@ -133,17 +129,13 @@
             for (let schedule in events) {
                 events[schedule].forEach(event => {
                     if (event.date.startsWith(`${currentYear}-${currentMonth.toString().padStart(2, '0')}`)) {
-                        let displayText = event.date;
-                        if (event.date in holidays) {
-                            displayText += ` (${holidays[event.date]})`;
-                        }
-                        monthEvents.push({ date: event.date, title: `${displayText}: ${schedule}: ${event.title}` });
+                        monthEvents.push({ date: event.date, title: `${schedule}: ${event.title}` });
                     }
                 });
             }
             monthEvents.sort((a, b) => a.date.localeCompare(b.date));
             monthEvents.forEach(event => {
-                eventHtml += `<div>${event.title}</div>`;
+                eventHtml += `<div>${event.date}: ${event.title}</div>`;
             });
             eventList.innerHTML = eventHtml;
         }
