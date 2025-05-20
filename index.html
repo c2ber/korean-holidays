@@ -12,9 +12,9 @@
         .calendar th, .calendar td { width: 60px; height: 60px; text-align: center; border: 1px solid #ddd; vertical-align: top; }
         .calendar th { background-color: #4CAF50; color: white; }
         .calendar .weekday { background-color: #ffffff; }
-        .calendar .weekend { background-color: #ffcccb; } /* Light pink for weekends */
-        .calendar .holiday { background-color: #ffcccb; } /* Light pink for holidays */
-        .calendar .today { background-color: #add8e6; } /* Light blue for today */
+        .calendar .weekend { background-color: #ffcccb; }
+        .calendar .holiday { background-color: #ffcccb; }
+        .calendar .today { background-color: #add8e6; }
         .calendar .event { font-weight: bold; color: #d81b60; font-size: 12px; }
         select, button, a { padding: 5px; margin: 5px; border-radius: 3px; }
         button { background-color: #4CAF50; color: white; border: none; cursor: pointer; }
@@ -28,12 +28,12 @@
     <div class="container">
         <h1>GOGCC</h1>
         <div>
-            <button onclick="changeMonth(-1)">&larr;</button>
+            <button onclick="changeMonth(-1)">←</button>
             <label>연도:</label>
             <select id="year"></select>
             <label>월:</label>
             <select id="month"></select>
-            <button onclick="changeMonth(1)">&rarr;</button>
+            <button onclick="changeMonth(1)">→</button>
             <button onclick="displayCalendar()">달력 보기</button>
             <a href="manage.html">일정 및 공휴일 관리</a>
         </div>
@@ -69,12 +69,10 @@
             '2026-03-01': '삼일절'
         };
 
-        // Only save holidays if not already in localStorage
         if (!localStorage.getItem('holidays')) {
             localStorage.setItem('holidays', JSON.stringify(holidays));
         }
 
-        // 연도/월 드롭다운, 기본: 오늘 날짜
         const yearSelect = document.getElementById('year');
         const monthSelect = document.getElementById('month');
         for (let y = 2025; y <= 2026; y++) {
@@ -142,7 +140,6 @@
             html += '</tr></table>';
             document.getElementById('calendar').innerHTML = html;
 
-            // 일정 목록 표시
             let eventsText = '일정 목록:<br>';
             for (let schedule in events) {
                 events[schedule].forEach(event => {
@@ -154,14 +151,12 @@
             document.getElementById('events').innerHTML = eventsText;
         }
 
-        // Reload events and holidays from localStorage on page load
         window.addEventListener('load', () => {
             events = JSON.parse(localStorage.getItem('events')) || {};
             holidays = JSON.parse(localStorage.getItem('holidays')) || holidays;
             displayCalendar();
         });
 
-        // Update calendar when year or month changes
         yearSelect.addEventListener('change', displayCalendar);
         monthSelect.addEventListener('change', displayCalendar);
     </script>
