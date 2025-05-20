@@ -35,7 +35,8 @@
                     <option value="weekend">주말만 (토~일)</option>
                 </select>
             </label><br>
-            <label>반복 일수: <input type="number" id="repeatCount" value="1" min="1"></label><br>
+            <label>반복 주기 (일): <input type="number" id="cycleDays" value="1" min="1" placeholder="예: 16"></label><br>
+            <label>유지 일수: <input type="number" id="durationDays" value="1" min="1" placeholder="예: 3"></label><br>
             <label>일정 내용: <input type="text" id="eventTitle" placeholder="예: 5T"></label><br>
             <button onclick="addSchedule()">일정 추가</button>
             <button onclick="exportEvents()">일정 내보내기</button>
@@ -99,28 +100,34 @@
             const startDate = new Date(document.getElementById('startDate').value);
             const endDate = new Date(document.getElementById('endDate').value);
             const dayType = document.getElementById('dayType').value;
-            const repeatCount = parseInt(document.getElementById('repeatCount').value);
+            const cycleDays = parseInt(document.getElementById('cycleDays').value);
+            const durationDays = parseInt(document.getElementById('durationDays').value);
             const eventTitle = document.getElementById('eventTitle').value.trim();
 
             if (!scheduleName || !eventTitle) {
                 alert('일정 제목과 내용을 입력하세요.');
                 return;
             }
+            if (cycleDays < 1 || durationDays < 1) {
+                alert('반복 주기와 유지 일수는 1 이상이어야 합니다.');
+                return;
+            }
 
             if (!events[scheduleName]) events[scheduleName] = [];
             let currentDate = new Date(startDate);
-            let count = 0;
 
-            while (currentDate <= endDate && count < 100) {
+            while (currentDate <= endDate) {
                 if (isValidDay(currentDate, dayType)) {
-                    for (let i = 0; i < repeatCount && currentDate <= endDate; i++) {
+                    // 유지 일수만큼 일정 추가
+                    for (let i = 0; i < durationDays && currentDate <= endDate; i++) {
                         if (isValidDay(currentDate, dayType)) {
                             const dateStr = currentDate.toISOString().split('T')[0];
                             events[scheduleName].push({ date: dateStr, title: eventTitle });
                         }
                         currentDate.setDate(currentDate.getDate() + 1);
                     }
-                    count++;
+                    // 다음 반복 주기로 이동
+                    currentDate.setDate(currentDate.getDate() - durationDays + cycleDays);
                 } else {
                     currentDate.setDate(currentDate.getDate() + 1);
                 }
