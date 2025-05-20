@@ -42,7 +42,7 @@
             <label>반복 주기 (일): <input type="number" id="cycleDays" value="16" min="1" placeholder="예: 16"></label><br>
             <label>유지 일수: <input type="number" id="durationDays" value="3" min="1" placeholder="예: 3"></label><br>
             <label>일정 내용: <input type="text" id="eventTitle" placeholder="예: 5T"></label><br>
-            <button onclick="addSchedule()">일정 추가</button>
+            <button onclick="handleSchedule()">일정 추가</button>
             <button onclick="exportEvents()">일정 내보내기</button>
             <label>일정 가져오기: <input type="file" id="importFile" accept=".json"></label>
         </div>
@@ -104,6 +104,7 @@
         }
 
         function addSchedule(scheduleName, startDate, endDate, dayType, cycleDays, durationDays, eventTitle) {
+            console.log('addSchedule called:', { scheduleName, startDate, endDate, dayType, cycleDays, durationDays, eventTitle });
             if (!events[scheduleName]) events[scheduleName] = [];
             let currentDate = new Date(startDate);
             let cycleCount = 0;
@@ -141,28 +142,25 @@
         }
 
         function reprocessSchedules() {
+            console.log('reprocessSchedules called');
             const originalEvents = { ...events };
             events = {};
             for (let scheduleName in originalEvents) {
                 const scheduleEvents = originalEvents[scheduleName];
                 if (scheduleEvents.length === 0) continue;
 
-                // 추정: 첫 이벤트에서 시작 날짜, 제목 추출
                 const firstEvent = scheduleEvents[0];
                 const startDate = new Date(firstEvent.date);
                 const eventTitle = firstEvent.title;
 
-                // 마지막 이벤트에서 종료 날짜 추정
                 const lastEvent = scheduleEvents[scheduleEvents.length - 1];
                 const endDate = new Date(lastEvent.date);
 
-                // 주기와 유지 일수 추정 (최소 간격과 그룹 크기 기반)
-                const dates = scheduleEvents.map(e => new Date(e.date)).sort((a, b) => a - b);
-                let cycleDays = 16; // 기본값
+                let cycleDays = 16;
                 let durationDays = 1;
-                let dayType = 'weekday'; // 기본값
+                let dayType = 'weekday';
 
-                // 간단한 패턴 분석
+                const dates = scheduleEvents.map(e => new Date(e.date)).sort((a, b) => a - b);
                 for (let i = 1; i < dates.length; i++) {
                     const diff = (dates[i] - dates[i - 1]) / (1000 * 60 * 60 * 24);
                     if (diff > 1) {
@@ -171,7 +169,6 @@
                 }
                 durationDays = scheduleEvents.filter(e => new Date(e.date).getTime() <= dates[0].getTime() + durationDays * 24 * 60 * 60 * 1000).length;
 
-                // dayType 추정
                 if (scheduleEvents.every(e => {
                     const date = new Date(e.date);
                     return date.getDay() === 0 || date.getDay() === 6 || (e.date in holidays);
@@ -193,6 +190,7 @@
         }
 
         function handleSchedule() {
+            console.log('handleSchedule called');
             const scheduleName = document.getElementById('scheduleName').value.trim();
             const startDate = new Date(document.getElementById('startDate').value);
             const endDate = new Date(document.getElementById('endDate').value);
@@ -203,6 +201,10 @@
 
             if (!scheduleName || !eventTitle) {
                 alert('일정 제목과 내용을 입력하세요.');
+                return;
+            }
+            if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+                alert('유효한 시작 날짜와 종료 날짜를 입력하세요.');
                 return;
             }
             if (cycleDays < 1 || durationDays < 1) {
@@ -217,6 +219,7 @@
         }
 
         function addHoliday() {
+            console.log('addHoliday called');
             const holidayDate = document.getElementById('holidayDate').value;
             const holidayName = document.getElementById('holidayName').value.trim();
             if (!holidayDate || !holidayName) {
@@ -225,7 +228,7 @@
             }
             holidays[holidayDate] = holidayName;
             localStorage.setItem('holidays', JSON.stringify(holidays));
-            reprocessSchedules(); // 기존 일정 재계산
+            reprocessSchedules();
             displayHolidays();
             alert('공휴일이 추가되었습니다. 기존 평일 일정이 조정되었습니다.');
         }
@@ -278,7 +281,7 @@
             if (confirm(`'${holidays[date]}' 공휴일을 삭제하시겠습니까?`)) {
                 delete holidays[date];
                 localStorage.setItem('holidays', JSON.stringify(holidays));
-                reprocessSchedules(); // 공휴일 삭제 후 일정 재계산
+                reprocessSchedules();
                 displayHolidays();
             }
         }
@@ -306,47 +309,4 @@
         }
 
         document.getElementById('importFile').addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    try {
-                        const importedEvents = JSON.parse(e.target.result);
-                        events = { ...events, ...importedEvents };
-                        localStorage.setItem('events', JSON.stringify(events));
-                        displaySchedules();
-                        alert('일정이 가져와졌습니다.');
-                    } catch (err) {
-                        alert('잘못된 JSON 파일입니다.');
-                    }
-                };
-                reader.readAsText(file);
-            }
-        });
-
-        document.getElementById('importHolidayFile').addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    try {
-                        const importedHolidays = JSON.parse(e.target.result);
-                        holidays = { ...holidays, ...importedHolidays };
-                        localStorage.setItem('holidays', JSON.stringify(holidays));
-                        reprocessSchedules(); // 가져온 공휴일로 일정 재계산
-                        displayHolidays();
-                        alert('공휴일이 가져와졌습니다. 기존 평일 일정이 조정되었습니다.');
-                    } catch (err) {
-                        alert('잘못된 JSON 파일입니다.');
-                    }
-                };
-                reader.readAsText(file);
-            }
-        });
-
-        // 초기 표시
-        displaySchedules();
-        displayHolidays();
-    </script>
-</body>
-</html>
+            const file = e.target
