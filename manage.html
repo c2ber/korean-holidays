@@ -24,19 +24,23 @@
         <a href="index.html">달력으로 돌아가기</a>
         <div class="form">
             <h3>일정 추가</h3>
-            <p class="note">일정은 브라우저에 자동 저장됩니다. GitHub에 저장하려면 내보내기 후 업로드하세요.</p>
+            <p class="note">일정은 브라우저에 자동 저장됩니다. GitHub에 저장하려면 내보내기 후 업로드하세요.<br>
+            - 평일: 주말/공휴일 제외, 평일만 카운팅.<br>
+            - 주말/공휴일: 주말과 공휴일만 카운팅.<br>
+            - 둘 다: 모든 날 연속 카운팅.<br>
+            - 새 공휴일 추가 시 평일 일정은 자동 미뤄집니다.</p>
             <label>일정 제목: <input type="text" id="scheduleName" placeholder="예: 프로젝트 A"></label><br>
             <label>시작 날짜: <input type="date" id="startDate" value="2025-05-16"></label><br>
             <label>종료 날짜: <input type="date" id="endDate" value="2026-03-31"></label><br>
             <label>대상: 
                 <select id="dayType">
                     <option value="weekday">평일 (월~금)</option>
-                    <option value="all">주말 포함 (월~일)</option>
-                    <option value="weekend">주말만 (토~일)</option>
+                    <option value="all">둘 다 (월~일)</option>
+                    <option value="weekend">주말/공휴일</option>
                 </select>
             </label><br>
-            <label>반복 주기 (일): <input type="number" id="cycleDays" value="1" min="1" placeholder="예: 16"></label><br>
-            <label>유지 일수: <input type="number" id="durationDays" value="1" min="1" placeholder="예: 3"></label><br>
+            <label>반복 주기 (일): <input type="number" id="cycleDays" value="16" min="1" placeholder="예: 16"></label><br>
+            <label>유지 일수: <input type="number" id="durationDays" value="3" min="1" placeholder="예: 3"></label><br>
             <label>일정 내용: <input type="text" id="eventTitle" placeholder="예: 5T"></label><br>
             <button onclick="addSchedule()">일정 추가</button>
             <button onclick="exportEvents()">일정 내보내기</button>
@@ -44,7 +48,8 @@
         </div>
         <div class="form">
             <h3>공휴일 추가</h3>
-            <p class="note">공휴일은 브라우저에 자동 저장됩니다. GitHub에 저장하려면 내보내기 후 업로드하세요.</p>
+            <p class="note">공휴일은 브라우저에 자동 저장됩니다. GitHub에 저장하려면 내보내기 후 업로드하세요.<br>
+            새 공휴일 추가 시 기존 평일 일정은 자동으로 조정됩니다.</p>
             <label>공휴일 날짜: <input type="date" id="holidayDate"></label><br>
             <label>공휴일 이름: <input type="text" id="holidayName" placeholder="예: 선거일"></label><br>
             <button onclick="addHoliday()">공휴일 추가</button>
@@ -89,13 +94,105 @@
 
         function isValidDay(date, dayType) {
             const dateStr = date.toISOString().split('T')[0];
-            if (dateStr in holidays) return false;
-            if (dayType === 'weekday') return date.getDay() !== 0 && date.getDay() !== 6;
-            if (dayType === 'weekend') return date.getDay() === 0 || date.getDay() === 6;
-            return true;
+            if (dayType === 'weekday') {
+                return date.getDay() !== 0 && date.getDay() !== 6 && !(dateStr in holidays);
+            }
+            if (dayType === 'weekend') {
+                return (date.getDay() === 0 || date.getDay() === 6 || (dateStr in holidays));
+            }
+            return true; // all
         }
 
-        function addSchedule() {
+        function addSchedule(scheduleName, startDate, endDate, dayType, cycleDays, durationDays, eventTitle) {
+            if (!events[scheduleName]) events[scheduleName] = [];
+            let currentDate = new Date(startDate);
+            let cycleCount = 0;
+
+            while (currentDate <= endDate) {
+                if (isValidDay(currentDate, dayType)) {
+                    let validDaysAdded = 0;
+                    while (validDaysAdded < durationDays && currentDate <= endDate) {
+                        if (isValidDay(currentDate, dayType)) {
+                            const dateStr = currentDate.toISOString().split('T')[0];
+                            events[scheduleName].push({ date: dateStr, title: eventTitle });
+                            validDaysAdded++;
+                        }
+                        currentDate.setDate(currentDate.getDate() + 1);
+                    }
+                    if (validDaysAdded < durationDays) break;
+
+                    if (dayType === 'all') {
+                        currentDate.setDate(currentDate.getDate() - validDaysAdded + cycleDays);
+                    } else {
+                        let validCycleDays = 0;
+                        while (validCycleDays < cycleDays && currentDate <= endDate) {
+                            if (isValidDay(currentDate, dayType)) {
+                                validCycleDays++;
+                            }
+                            currentDate.setDate(currentDate.getDate() + 1);
+                        }
+                    }
+                    cycleCount++;
+                    if (cycleCount > 100) break;
+                } else {
+                    currentDate.setDate(currentDate.getDate() + 1);
+                }
+            }
+        }
+
+        function reprocessSchedules() {
+            const originalEvents = { ...events };
+            events = {};
+            for (let scheduleName in originalEvents) {
+                const scheduleEvents = originalEvents[scheduleName];
+                if (scheduleEvents.length === 0) continue;
+
+                // 추정: 첫 이벤트에서 시작 날짜, 제목 추출
+                const firstEvent = scheduleEvents[0];
+                const startDate = new Date(firstEvent.date);
+                const eventTitle = firstEvent.title;
+
+                // 마지막 이벤트에서 종료 날짜 추정
+                const lastEvent = scheduleEvents[scheduleEvents.length - 1];
+                const endDate = new Date(lastEvent.date);
+
+                // 주기와 유지 일수 추정 (최소 간격과 그룹 크기 기반)
+                const dates = scheduleEvents.map(e => new Date(e.date)).sort((a, b) => a - b);
+                let cycleDays = 16; // 기본값
+                let durationDays = 1;
+                let dayType = 'weekday'; // 기본값
+
+                // 간단한 패턴 분석
+                for (let i = 1; i < dates.length; i++) {
+                    const diff = (dates[i] - dates[i - 1]) / (1000 * 60 * 60 * 24);
+                    if (diff > 1) {
+                        cycleDays = Math.min(cycleDays, diff);
+                    }
+                }
+                durationDays = scheduleEvents.filter(e => new Date(e.date).getTime() <= dates[0].getTime() + durationDays * 24 * 60 * 60 * 1000).length;
+
+                // dayType 추정
+                if (scheduleEvents.every(e => {
+                    const date = new Date(e.date);
+                    return date.getDay() === 0 || date.getDay() === 6 || (e.date in holidays);
+                })) {
+                    dayType = 'weekend';
+                } else if (scheduleEvents.every(e => {
+                    const date = new Date(e.date);
+                    return !(date.getDay() === 0 || date.getDay() === 6 || (e.date in holidays));
+                })) {
+                    dayType = 'weekday';
+                } else {
+                    dayType = 'all';
+                }
+
+                addSchedule(scheduleName, startDate, endDate, dayType, cycleDays, durationDays, eventTitle);
+            }
+            localStorage.setItem('events', JSON.stringify(events));
+            displaySchedules();
+        }
+
+        function handleSchedule() {
             const scheduleName = document.getElementById('scheduleName').value.trim();
             const startDate = new Date(document.getElementById('startDate').value);
             const endDate = new Date(document.getElementById('endDate').value);
@@ -113,26 +210,7 @@
                 return;
             }
 
-            if (!events[scheduleName]) events[scheduleName] = [];
-            let currentDate = new Date(startDate);
-
-            while (currentDate <= endDate) {
-                if (isValidDay(currentDate, dayType)) {
-                    // 유지 일수만큼 일정 추가
-                    for (let i = 0; i < durationDays && currentDate <= endDate; i++) {
-                        if (isValidDay(currentDate, dayType)) {
-                            const dateStr = currentDate.toISOString().split('T')[0];
-                            events[scheduleName].push({ date: dateStr, title: eventTitle });
-                        }
-                        currentDate.setDate(currentDate.getDate() + 1);
-                    }
-                    // 다음 반복 주기로 이동
-                    currentDate.setDate(currentDate.getDate() - durationDays + cycleDays);
-                } else {
-                    currentDate.setDate(currentDate.getDate() + 1);
-                }
-            }
-
+            addSchedule(scheduleName, startDate, endDate, dayType, cycleDays, durationDays, eventTitle);
             localStorage.setItem('events', JSON.stringify(events));
             displaySchedules();
             alert('일정이 추가되었습니다.');
@@ -147,8 +225,9 @@
             }
             holidays[holidayDate] = holidayName;
             localStorage.setItem('holidays', JSON.stringify(holidays));
+            reprocessSchedules(); // 기존 일정 재계산
             displayHolidays();
-            alert('공휴일이 추가되었습니다.');
+            alert('공휴일이 추가되었습니다. 기존 평일 일정이 조정되었습니다.');
         }
 
         function displaySchedules() {
@@ -199,6 +278,7 @@
             if (confirm(`'${holidays[date]}' 공휴일을 삭제하시겠습니까?`)) {
                 delete holidays[date];
                 localStorage.setItem('holidays', JSON.stringify(holidays));
+                reprocessSchedules(); // 공휴일 삭제 후 일정 재계산
                 displayHolidays();
             }
         }
@@ -253,8 +333,9 @@
                         const importedHolidays = JSON.parse(e.target.result);
                         holidays = { ...holidays, ...importedHolidays };
                         localStorage.setItem('holidays', JSON.stringify(holidays));
+                        reprocessSchedules(); // 가져온 공휴일로 일정 재계산
                         displayHolidays();
-                        alert('공휴일이 가져와졌습니다.');
+                        alert('공휴일이 가져와졌습니다. 기존 평일 일정이 조정되었습니다.');
                     } catch (err) {
                         alert('잘못된 JSON 파일입니다.');
                     }
