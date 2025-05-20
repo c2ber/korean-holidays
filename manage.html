@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>GOGCC - 일정 및 공휴일 관리</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; padding: 20px; background-color: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; }
+        h1, h3 { color: #333; }
+        .form, .schedule-list, .holiday-list { text-align: left; max-width: 400px; margin: 20px auto; padding: 15px; background-color: white; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .form label, .form input, .form select, .form button { margin: 5px; }
+        .form button, .schedule-list button, .holiday-list button { background-color: #4CAF50; color: white; border: none; padding: 8px 16px; border-radius: 3px; cursor: pointer; }
+        .form button:hover, .schedule-list button:hover, .holiday-list button:hover { background-color: #45a049; }
+        a { text-decoration: none; color: #4CAF50; }
+        a:hover { color: #45a049; }
+        .schedule-list div, .holiday-list div { margin: 10px 0; }
+        .schedule-list input { width: 100px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>GOGCC - 일정 및 공휴일 관리</h1>
+        <a href="index.html">달력으로 돌아가기</a>
+        <div class="form">
+            <h3>일정 추가</h3>
+            <label>일정 제목: <input type="text" id="scheduleName" placeholder="예: 프로젝트 A"></label><br>
+            <label>시작 날짜: <input type="date" id="startDate" value="2025-05-16"></label><br>
+            <label>종료 날짜: <input type="date" id="endDate" value="2026-03-31"></label><br>
+            <label>대상: 
+                <select id="dayType">
+                    <option value="weekday">평일 (월~금)</option>
+                    <option value="all">주말 포함 (월~일)</option>
+                    <option value="weekend">주말만 (토~일)</option>
+                </select>
+            </label><br>
+            <label>반복 일수: <input type="number" id="repeatCount" value="1" min="1"></label><br>
+            <label>일정 내용: <input type="text" id="eventTitle" placeholder="예: 5T"></label><br>
+            <button onclick="addSchedule()">일정 추가</button>
+            <button onclick="exportEvents()">일정 내보내기</button>
+            <label>일정 가져오기: <input type="file" id="importFile" accept=".json"></label>
+        </div>
+        <div class="form">
+            <h3>공휴일 추가</h3>
+            <label>공휴일 날짜: <input type="date" id="holidayDate"></label><br>
+            <label>공휴일 이름: <input type="text" id="holidayName" placeholder="예: 선거일"></label><br>
+            <button onclick="addHoliday()">공휴일 추가</button>
+            <button onclick="exportHolidays()">공휴일 내보내기</button>
+            <label>공휴일 가져오기: <input type="file" id="importHolidayFile" accept=".json"></label>
+        </div>
+        <div class="schedule-list" id="scheduleList">
+            <h3>등록된 일정</h3>
+        </div>
+        <div class="holiday-list" id="holidayList">
+            <h3>등록된 공휴일</h3>
+        </div>
+    </div>
+
+    <script>
+        let events = JSON.parse(localStorage.getItem('events')) || {};
+        let holidays = JSON.parse(localStorage.getItem('holidays')) || {
+            '2025-01-01': '신정',
+            '2025-01-28': '설날',
+            '2025-01-29': '설날',
+            '2025-01-30': '설날',
+            '2025-03-01': '삼일절',
+            '2025-03-03': '삼일절 대체공휴일',
+            '2025-05-05': '어린이날',
+            '2025-05-06': '대체공휴일',
+            '2025-06-06': '현충일',
+            '2025-08-15': '광복절',
+            '2025-10-03': '개천절',
+            '2025-10-05': '추석',
+            '2025-10-06': '추석',
+            '2025-10-07': '추석',
+            '2025-10-08': '추석 대체공휴일',
+            '2025-10-09': '한글날',
+            '2025-12-25': '크리스마스',
+            '2026-01-01': '신정',
+            '2026-02-16': '설날',
+            '2026-02-17': '설날',
+            '2026-02-18': '설날',
+            '2026-03-01': '삼일절'
+        };
+        localStorage.setItem('holidays', JSON.stringify(holidays));
+
+        function isValidDay(date, dayType) {
+            const dateStr = date.toISOString().split('T')[0];
+            if (dateStr in holidays) return false;
+            if (dayType === 'weekday') return date.getDay() !== 0 && date.getDay() !== 6;
+            if (dayType === 'weekend') return date.getDay() === 0 || date.getDay() === 6;
+            return true;
+        }
+
+        function addSchedule() {
+            const scheduleName = document.getElementById('scheduleName').value.trim();
+            const startDate = new Date(document.getElementById('startDate').value);
+            const endDate = new Date(document.getElementById('endDate').value);
+            const dayType = document.getElementById('dayType').value;
+            const repeatCount = parseInt(document.getElementById('repeatCount').value);
+            const eventTitle = document.getElementById('eventTitle').value.trim();
+
+            if (!scheduleName || !eventTitle) {
+                alert('일정 제목과 내용을 입력하세요.');
+                return;
+            }
+
+            if (!events[scheduleName]) events[scheduleName] = [];
+            let currentDate = new Date(startDate);
+            let count = 0;
+
+            while (currentDate <= endDate && count < 100) {
+                if (isValidDay(currentDate, dayType)) {
+                    for (let i = 0; i < repeatCount && currentDate <= endDate; i++) {
+                        if (isValidDay(currentDate, dayType)) {
+                            const dateStr = currentDate.toISOString().split('T')[0];
+                            events[scheduleName].push({ date: dateStr, title: eventTitle });
+                        }
+                        currentDate.setDate(currentDate.getDate() + 1);
+                    }
+                    count++;
+                } else {
+                    currentDate.setDate(currentDate.getDate() + 1);
+                }
+            }
+
+            localStorage.setItem('events', JSON.stringify(events));
+            displaySchedules();
+            alert('일정이 추가되었습니다.');
+        }
+
+        function addHoliday() {
+            const holidayDate = document.getElementById('holidayDate').value;
+            const holidayName = document.getElementById('holidayName').value.trim();
+            if (!holidayDate || !holidayName) {
+                alert('공휴일 날짜와 이름을 입력하세요.');
+                return;
+            }
+            holidays[holidayDate] = holidayName;
+            localStorage.setItem('holidays', JSON.stringify(holidays));
+            displayHolidays();
+            alert('공휴일이 추가되었습니다.');
+        }
+
+        function displaySchedules() {
+            const scheduleList = document.getElementById('scheduleList');
+            let html = '<h3>등록된 일정</h3>';
+            for (let schedule in events) {
+                html += `<div>
+                    <strong>${schedule}</strong>
+                    <button onclick="deleteSchedule('${schedule}')">삭제</button>
+                    <ul>`;
+                events[schedule].forEach((event, index) => {
+                    html += `<li>
+                        ${event.date}: <input type="text" value="${event.title}" onchange="editSchedule('${schedule}', ${index}, this.value)">
+                    </li>`;
+                });
+                html += '</ul></div>';
+            }
+            scheduleList.innerHTML = html;
+        }
+
+        function displayHolidays() {
+            const holidayList = document.getElementById('holidayList');
+            let html = '<h3>등록된 공휴일</h3>';
+            for (let date in holidays) {
+                html += `<div>${date}: ${holidays[date]} <button onclick="deleteHoliday('${date}')">삭제</button></div>`;
+            }
+            holidayList.innerHTML = html;
+        }
+
+        function deleteSchedule(scheduleName) {
+            if (confirm(`'${scheduleName}' 일정을 삭제하시겠습니까?`)) {
+                delete events[scheduleName];
+                localStorage.setItem('events', JSON.stringify(events));
+                displaySchedules();
+            }
+        }
+
+        function editSchedule(scheduleName, index, newTitle) {
+            if (newTitle.trim()) {
+                events[scheduleName][index].title = newTitle.trim();
+                localStorage.setItem('events', JSON.stringify(events));
+                displaySchedules();
+            }
+        }
+
+        function deleteHoliday(date) {
+            if (confirm(`'${holidays[date]}' 공휴일을 삭제하시겠습니까?`)) {
+                delete holidays[date];
+                localStorage.setItem('holidays', JSON.stringify(holidays));
+                displayHolidays();
+            }
+        }
+
+        function exportEvents() {
+            const dataStr = JSON.stringify(events, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'gogcc_events.json';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function exportHolidays() {
+            const dataStr = JSON.stringify(holidays, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'gogcc_holidays.json';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        document.getElementById('importFile').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const importedEvents = JSON.parse(e.target.result);
+                        events = { ...events, ...importedEvents };
+                        localStorage.setItem('events', JSON.stringify(events));
+                        displaySchedules();
+                        alert('일정이 가져와졌습니다.');
+                    } catch (err) {
+                        alert('잘못된 JSON 파일입니다.');
+                    }
+                };
+                reader.readAsText(file);
+            }
+        });
+
+        document.getElementById('importHolidayFile').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const importedHolidays = JSON.parse(e.target.result);
+                        holidays = { ...holidays, ...importedHolidays };
+                        localStorage.setItem('holidays', JSON.stringify(holidays));
+                        displayHolidays();
+                        alert('공휴일이 가져와졌습니다.');
+                    } catch (err) {
+                        alert('잘못된 JSON 파일입니다.');
+                    }
+                };
+                reader.readAsText(file);
+            }
+        });
+
+        // 초기 표시
+        displaySchedules();
+        displayHolidays();
+    </script>
+</body>
+</html>
