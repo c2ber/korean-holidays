@@ -12,8 +12,10 @@
         .calendar th, .calendar td { width: 100px; height: 100px; text-align: center; border: 1px solid #ddd; vertical-align: top; }
         .calendar th { background-color: #4CAF50; color: white; }
         .calendar .weekday { background-color: #ffffff; }
-        .calendar .weekend, .calendar .holiday { background-color: #ffcccb; }
-        .calendar .today { background-color: #add8e6; }
+        .calendar .weekend { background-color: #ffcccb; } /* 일요일만 분홍색 */
+        .calendar .holiday { background-color: #ffcccb; }
+        .calendar .saturday { background-color: #add8e6; } /* 토요일 파란색 */
+        .calendar .today { background-color: #add8e6 !important; border: 2px solid #1e90ff; } /* 오늘: 파란색 + 테두리 */
         .calendar .event { font-weight: bold; color: #d81b60; font-size: 12px; }
         select, button, a { padding: 5px; margin: 5px; border-radius: 3px; }
         button { background-color: #4CAF50; color: white; border: none; cursor: pointer; }
@@ -41,7 +43,16 @@
     </div>
 
     <script>
+        // KST 기준 오늘 날짜 설정
         const today = new Date();
+        const todayStr = new Intl.DateTimeFormat('ko-KR', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            timeZone: 'Asia/Seoul'
+        }).format(today).replace(/\. /g, '-').replace(/\./, '');
+        console.log('Today (KST):', todayStr); // 디버깅: 2025-05-22 확인
+
         let events = JSON.parse(localStorage.getItem('events')) || {};
         let holidays = {};
 
@@ -105,16 +116,16 @@
             const lastDay = new Date(year, month + 1, 0);
             const daysInMonth = lastDay.getDate();
             const startDay = firstDay.getDay();
-            const todayStr = today.toISOString().split('T')[0];
 
             let html = '<table><tr><th>일</th><th>월</th><th>화</th><th>수</th><th>목</th><th>금</th><th>토</th></tr><tr>';
             for (let i = 0; i < startDay; i++) html += '<td></td>';
             for (let day = 1; day <= daysInMonth; day++) {
                 const date = new Date(year, month, day);
                 const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                let cellClass = dateStr === todayStr ? 'today' : 
-                                dateStr in holidays ? 'holiday' : 
-                                date.getDay() === 0 || date.getDay() === 6 ? 'weekend' : 'weekday';
+                let cellClass = dateStr === todayStr ? 'today' :
+                                date.getDay() === 6 ? 'saturday' : // 토요일
+                                dateStr in holidays ? 'holiday' :
+                                date.getDay() === 0 ? 'weekend' : 'weekday'; // 일요일만 weekend
                 let eventText = dateStr in holidays ? `<br><span class="event">${holidays[dateStr]}</span>` : '';
                 for (let schedule in events) {
                     const event = events[schedule].find(e => e.date === dateStr);
