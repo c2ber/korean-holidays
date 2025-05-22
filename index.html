@@ -12,10 +12,10 @@
         .calendar th, .calendar td { width: 100px; height: 100px; text-align: center; border: 1px solid #ddd; vertical-align: top; }
         .calendar th { background-color: #4CAF50; color: white; }
         .calendar .weekday { background-color: #ffffff; }
-        .calendar .weekend { background-color: #ffcccb; } /* 일요일만 분홍색 */
+        .calendar .weekend { background-color: #ffcccb; }
         .calendar .holiday { background-color: #ffcccb; }
-        .calendar .saturday { background-color: #add8e6; } /* 토요일 파란색 */
-        .calendar .today { background-color: #ccffcc !important; border: 2px solid #00ff00; } /* 오늘: 파란색 + 테두리 */
+        .calendar .saturday { background-color: #add8e6; }
+        .calendar .today { background-color: #ccffcc !important; border: 2px solid #00ff00; }
         .calendar .event { font-weight: bold; color: #d81b60; font-size: 12px; }
         select, button, a { padding: 5px; margin: 5px; border-radius: 3px; }
         button { background-color: #4CAF50; color: white; border: none; cursor: pointer; }
@@ -36,7 +36,6 @@
             <select id="month"></select>
             <button onclick="changeMonth(1)">→</button>
             <button onclick="displayCalendar()">달력 보기</button>
-            <br>
             <a href="manage.html">일정 및 공휴일 관리</a>
         </div>
         <div class="calendar" id="calendar"></div>
@@ -52,7 +51,7 @@
             day: '2-digit',
             timeZone: 'Asia/Seoul'
         }).format(today).replace(/\. /g, '-').replace(/\./, '');
-        console.log('Today (KST):', todayStr); // 디버깅: 2025-05-22 확인
+        console.log('Today (KST):', todayStr);
 
         let events = JSON.parse(localStorage.getItem('events')) || {};
         let holidays = {};
@@ -124,12 +123,12 @@
                 const date = new Date(year, month, day);
                 const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                 let cellClass = dateStr === todayStr ? 'today' :
-                                date.getDay() === 6 ? 'saturday' : // 토요일
+                                date.getDay() === 6 ? 'saturday' :
                                 dateStr in holidays ? 'holiday' :
-                                date.getDay() === 0 ? 'weekend' : 'weekday'; // 일요일만 weekend
+                                date.getDay() === 0 ? 'weekend' : 'weekday';
                 let eventText = dateStr in holidays ? `<br><span class="event">${holidays[dateStr]}</span>` : '';
                 for (let schedule in events) {
-                    const event = events[schedule].find(e => e.date === dateStr);
+                    const event = events[schedule].dates.find(e => e.date === dateStr);
                     if (event) eventText += `<br><span class="event">${event.title} (${schedule})</span>`;
                 }
                 html += `<td class="${cellClass}">${day}${eventText}</td>`;
@@ -140,7 +139,7 @@
 
             let eventsText = '일정 목록:<br>';
             for (let schedule in events) {
-                events[schedule].forEach(event => {
+                events[schedule].dates.forEach(event => {
                     if (event.date.startsWith(`${year}-${String(month + 1).padStart(2, '0')}`)) {
                         eventsText += `${event.date} (${schedule}): ${event.title}<br>`;
                     }
