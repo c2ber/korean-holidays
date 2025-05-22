@@ -9,19 +9,21 @@ function renderCalendar() {
 
   const year = document.getElementById("year-select").value;
   const month = document.getElementById("month-select").value;
+  const monthStr = String(month).padStart(2, '0');
 
   const date = new Date(year, month - 1, 1);
   const firstDay = date.getDay();
   const lastDate = new Date(year, month, 0).getDate();
 
-  const weeks = [];
   for (let i = 0; i < firstDay; i++) {
-    calendar.appendChild(document.createElement("div"));
+    const emptyDiv = document.createElement("div");
+    emptyDiv.className = "day";
+    calendar.appendChild(emptyDiv);
   }
 
   for (let d = 1; d <= lastDate; d++) {
     const dayDiv = document.createElement("div");
-    const fullDate = `${year}-${month.padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    const fullDate = `${year}-${monthStr}-${String(d).padStart(2, '0')}`;
     dayDiv.className = "day";
     const weekDay = new Date(year, month - 1, d).getDay();
     if (weekDay === 0) dayDiv.classList.add("sunday");
