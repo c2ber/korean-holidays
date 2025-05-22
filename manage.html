@@ -28,7 +28,7 @@
             - 평일: 주말/공휴일 제외<br>
             - 주말/공휴일: 주말과 공휴일만<br>
             - 둘 다: 모든 날 연속<br>
-            - 새 공휴일 추가 시 평일 일정은 자동 조정</p>
+            - 새 공휴일 추가 시 평일 일정은 공휴일 이후부터 조정</p>
             <label>일정 제목: <input type="text" id="scheduleName" placeholder="예: 프로젝트 A"></label><br>
             <label>시작 날짜: <input type="date" id="startDate" value="2025-05-16"></label><br>
             <label>종료 날짜: <input type="date" id="endDate" value="2026-03-31"></label><br>
@@ -116,9 +116,14 @@
         }
 
         // 일정 추가
-        function addSchedule(scheduleName, startDate, endDate, dayType, cycleDays, durationDays, eventTitle) {
-            if (!events[scheduleName]) events[scheduleName] = [];
-            let currentDate = new Date(startDate);
+        function addSchedule(scheduleName, startDate, endDate, dayType, cycleDays, durationDays, eventTitle, resumeDate = null) {
+            if (!events[scheduleName]) {
+                events[scheduleName] = {
+                    metadata: { startDate, endDate, dayType, cycleDays, durationDays, eventTitle },
+                    dates: []
+                };
+            }
+            let currentDate = resumeDate ? new Date(resumeDate) : new Date(startDate);
             let cycleCount = 0;
 
             while (currentDate <= endDate) {
@@ -126,7 +131,7 @@
                     let validDaysAdded = 0;
                     while (validDaysAdded < durationDays && currentDate <= endDate) {
                         if (isValidDay(currentDate, dayType)) {
-                            events[scheduleName].push({ date: currentDate.toISOString().split('T')[0], title: eventTitle });
+                            events[scheduleName].dates.push({ date: currentDate.toISOString().split('T')[0], title: eventTitle });
                             validDaysAdded++;
                         }
                         currentDate.setDate(currentDate.getDate() + 1);
@@ -150,51 +155,54 @@
                     currentDate.setDate(currentDate.getDate() + 1);
                 }
             }
+            console.log(`Added schedule: ${scheduleName}`, events[scheduleName]);
         }
 
         // 일정 재조정
-        function reprocessSchedules() {
+        function reprocessSchedules(holidayDate) {
             const originalEvents = { ...events };
             events = {};
+
             for (let scheduleName in originalEvents) {
-                const scheduleEvents = originalEvents[scheduleName];
-                if (scheduleEvents.length === 0) continue;
-
-                const firstEvent = scheduleEvents[0];
-                const startDate = new Date(firstEvent.date);
-                const eventTitle = firstEvent.title;
-                const lastEvent = scheduleEvents[scheduleEvents.length - 1];
-                const endDate = new Date(lastEvent.date);
-
-                let cycleDays = 16;
-                let durationDays = 1;
-                let dayType = 'weekday';
-
-                const dates = scheduleEvents.map(e => new Date(e.date)).sort((a, b) => a - b);
-                for (let i = 1; i < dates.length; i++) {
-                    const diff = (dates[i] - dates[i - 1]) / (1000 * 60 * 60 * 24);
-                    if (diff > 1) cycleDays = Math.min(cycleDays, diff);
+                const metadata = originalEvents[scheduleName].metadata;
+                if (!metadata) {
+                    console.warn(`No metadata for ${scheduleName}, skipping reprocess`);
+                    continue;
                 }
-                durationDays = scheduleEvents.filter(e => new Date(e.date).getTime() <= dates[0].getTime() + durationDays * 24 * 60 * 60 * 1000).length;
+                console.log(`Reprocessing ${scheduleName} from ${holidayDate}:`, metadata);
 
-                if (scheduleEvents.every(e => {
-                    const date = new Date(e.date);
-                    return date.getDay() === 0 || date.getDay() === 6 || (e.date in mergeHolidays(date.getFullYear()));
-                })) {
-                    dayType = 'weekend';
-                } else if (scheduleEvents.every(e => {
-                    const date = new Date(e.date);
-                    return !(date.getDay() === 0 || date.getDay() === 6 || (e.date in mergeHolidays(date.getFullYear())));
-                })) {
-                    dayType = 'weekday';
-                } else {
-                    dayType = 'all';
+                // 공휴일 이전 일정 유지
+                events[scheduleName] = {
+                    metadata: { ...metadata },
+                    dates: originalEvents[scheduleName].dates.filter(event => event.date < holidayDate)
+                };
+
+                // 공휴일 이후 일정 재조정
+                if (holidayDate <= metadata.endDate) {
+                    addSchedule(
+                        scheduleName,
+                        metadata.startDate,
+                        metadata.endDate,
+                        metadata.dayType,
+                        metadata.cycleDays,
+                        metadata.durationDays,
+                        metadata.eventTitle,
+                        holidayDate // 공휴일부터 재개
+                    );
                 }
 
-                addSchedule(scheduleName, startDate, endDate, dayType, cycleDays, durationDays, eventTitle);
+                // 중복 제거 및 날짜 정렬
+                const uniqueDates = [...new Set(events[scheduleName].dates.map(e => e.date))].sort();
+                events[scheduleName].dates = uniqueDates.map(date => {
+                    const originalEvent = originalEvents[scheduleName].dates.find(e => e.date === date) || 
+                                         events[scheduleName].dates.find(e => e.date === date);
+                    return { date, title: originalEvent.title || metadata.eventTitle };
+                });
             }
+
             localStorage.setItem('events', JSON.stringify(events));
             displaySchedules();
+            console.log('Reprocessed schedules:', events);
         }
 
         // 일정 추가 처리
@@ -230,9 +238,9 @@
             if (!holidayDate || !holidayName) return alert('공휴일 날짜와 이름을 입력하세요.');
             customHolidays[holidayDate] = holidayName;
             localStorage.setItem('custom_holidays', JSON.stringify(customHolidays));
-            reprocessSchedules();
+            reprocessSchedules(holidayDate);
             loadHolidays();
-            alert('사용자 정의 공휴일이 추가되었습니다. 기존 평일 일정이 조정되었습니다.');
+            alert('사용자 정의 공휴일이 추가되었습니다. 공휴일 이후 평일 일정이 조정되었습니다.');
         }
 
         // 일정 표시
@@ -241,7 +249,7 @@
             let html = '<h3>등록된 일정</h3>';
             for (let schedule in events) {
                 html += `<div><strong>${schedule}</strong> <button onclick="deleteSchedule('${schedule}')">삭제</button><ul>`;
-                events[schedule].forEach((event, index) => {
+                events[schedule].dates.forEach((event, index) => {
                     html += `<li>${event.date}: <input type="text" value="${event.title}" onchange="editSchedule('${schedule}', ${index}, this.value)"></li>`;
                 });
                 html += '</ul></div>';
@@ -261,7 +269,7 @@
         // 일정 수정
         function editSchedule(scheduleName, index, newTitle) {
             if (newTitle.trim()) {
-                events[scheduleName][index].title = newTitle.trim();
+                events[scheduleName].dates[index].title = newTitle.trim();
                 localStorage.setItem('events', JSON.stringify(events));
                 displaySchedules();
             }
@@ -272,7 +280,7 @@
             if (confirm(`'${customHolidays[date]}' 사용자 정의 공휴일을 삭제하시겠습니까?`)) {
                 delete customHolidays[date];
                 localStorage.setItem('custom_holidays', JSON.stringify(customHolidays));
-                reprocessSchedules();
+                reprocessSchedules(date);
                 loadHolidays();
             }
         }
