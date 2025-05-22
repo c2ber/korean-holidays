@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2025년 5월 달력</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+    <div class="bg-white p-6 rounded-lg shadow-lg">
+        <h1 class="text-2xl font-bold text-center mb-4">2025년 5월</h1>
+        <table class="table-auto w-full text-center">
+            <thead>
+                <tr class="bg-gray-200">
+                    <th class="px-4 py-2 text-red-500">일</th>
+                    <th class="px-4 py-2">월</th>
+                    <th class="px-4 py-2">화</th>
+                    <th class="px-4 py-2">수</th>
+                    <th class="px-4 py-2">목</th>
+                    <th class="px-4 py-2">금</th>
+                    <th class="px-4 py-2 text-blue-500">토</th>
+                </tr>
+            </thead>
+            <tbody id="calendar-body">
+            </tbody>
+        </table>
+    </div>
+    <script>
+        function generateCalendar() {
+            const today = new Date('2025-05-22');
+            const year = 2025;
+            const month = 4; // JavaScript에서 5월은 4로 표현 (0-based)
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const tbody = document.getElementById('calendar-body');
+            let date = 1;
+            let html = '';
+
+            for (let i = 0; i < 6; i++) {
+                html += '<tr>';
+                for (let j = 0; j < 7; j++) {
+                    if (i === 0 && j < firstDay) {
+                        html += '<td class="px-4 py-2"></td>';
+                    } else if (date > daysInMonth) {
+                        html += '<td class="px-4 py-2"></td>';
+                    } else {
+                        const isToday = date === today.getDate();
+                        const bgClass = isToday ? 'bg-yellow-300' : '';
+                        const textClass = j === 0 ? 'text-red-500' : j === 6 ? 'text-blue-500' : '';
+                        html += `<td class="px-4 py-2 ${bgClass} ${textClass}">${date}</td>`;
+                        date++;
+                    }
+                }
+                html += '</tr>';
+                if (date > daysInMonth) break;
+            }
+            tbody.innerHTML = html;
+        }
+
+        generateCalendar();
+    </script>
+</body>
+</html>
