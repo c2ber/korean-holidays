@@ -28,7 +28,7 @@
             - 평일: 주말/공휴일 제외<br>
             - 주말/공휴일: 주말과 공휴일만<br>
             - 둘 다: 모든 날 연속<br>
-            - 새 공휴일 추가 시 평일 일정은 공휴일 이후부터 조정</p>
+            - 새 공휴일 추가 시 공휴일 이후부터 조정</p>
             <label>일정 제목: <input type="text" id="scheduleName" placeholder="예: 프로젝트 A"></label><br>
             <label>시작 날짜: <input type="date" id="startDate" value="2025-05-16"></label><br>
             <label>종료 날짜: <input type="date" id="endDate" value="2026-03-31"></label><br>
@@ -115,6 +115,16 @@
             return true;
         }
 
+        // 다음 유효 날짜 찾기
+        function findNextValidDate(startDate, dayType) {
+            let nextDate = new Date(startDate);
+            nextDate.setDate(nextDate.getDate() + 1);
+            while (!isValidDay(nextDate, dayType)) {
+                nextDate.setDate(nextDate.getDate() + 1);
+            }
+            return nextDate;
+        }
+
         // 일정 추가
         function addSchedule(scheduleName, startDate, endDate, dayType, cycleDays, durationDays, eventTitle, resumeDate = null) {
             if (!events[scheduleName]) {
@@ -129,33 +139,28 @@
             while (currentDate <= endDate) {
                 if (isValidDay(currentDate, dayType)) {
                     let validDaysAdded = 0;
-                    while (validDaysAdded < durationDays && currentDate <= endDate) {
-                        if (isValidDay(currentDate, dayType)) {
-                            events[scheduleName].dates.push({ date: currentDate.toISOString().split('T')[0], title: eventTitle });
+                    let tempDate = new Date(currentDate);
+                    while (validDaysAdded < durationDays && tempDate <= endDate) {
+                        if (isValidDay(tempDate, dayType)) {
+                            events[scheduleName].dates.push({ date: tempDate.toISOString().split('T')[0], title: eventTitle });
                             validDaysAdded++;
                         }
-                        currentDate.setDate(currentDate.getDate() + 1);
+                        tempDate = findNextValidDate(tempDate, dayType);
                     }
                     if (validDaysAdded < durationDays) break;
-                    if (dayType === 'all') {
-                        currentDate.setDate(currentDate.getDate() - validDaysAdded + cycleDays);
-                    } else {
-                        let validCycleDays = 0;
-                        while (validCycleDays < cycleDays && currentDate <= endDate) {
-                            if (isValidDay(currentDate, dayType)) validCycleDays++;
-                            currentDate.setDate(currentDate.getDate() + 1);
-                        }
-                    }
+                    // 고정 주기 적용
+                    currentDate.setDate(currentDate.getDate() + cycleDays);
+                    currentDate = findNextValidDate(new Date(currentDate.getTime() - 24 * 60 * 60 * 1000), dayType);
                     cycleCount++;
                     if (cycleCount > 1000) {
                         console.error('무한 루프 방지: 최대 1000 사이클');
                         break;
                     }
                 } else {
-                    currentDate.setDate(currentDate.getDate() + 1);
+                    currentDate = findNextValidDate(currentDate, dayType);
                 }
             }
-            console.log(`Added schedule: ${scheduleName}`, events[scheduleName]);
+            console.log(`Added schedule: ${scheduleName}, cycleDays: ${cycleDays}`, events[scheduleName].dates);
         }
 
         // 일정 재조정
@@ -179,25 +184,33 @@
 
                 // 공휴일 이후 일정 재조정
                 if (holidayDate <= metadata.endDate) {
-                    addSchedule(
-                        scheduleName,
-                        metadata.startDate,
-                        metadata.endDate,
-                        metadata.dayType,
-                        metadata.cycleDays,
-                        metadata.durationDays,
-                        metadata.eventTitle,
-                        holidayDate // 공휴일부터 재개
-                    );
+                    // 마지막 유지 일정 찾기
+                    const beforeHolidayDates = originalEvents[scheduleName].dates
+                        .filter(event => event.date < holidayDate)
+                        .sort((a, b) => new Date(b.date) - new Date(a.date));
+                    let resumeDate = holidayDate;
+                    if (beforeHolidayDates.length > 0) {
+                        const lastEventDate = new Date(beforeHolidayDates[0].date);
+                        resumeDate = new Date(lastEventDate);
+                        resumeDate.setDate(resumeDate.getDate() + metadata.cycleDays);
+                        resumeDate = findNextValidDate(new Date(resumeDate.getTime() - 24 * 60 * 60 * 1000), metadata.dayType);
+                    }
+                    if (resumeDate <= metadata.endDate) {
+                        addSchedule(
+                            scheduleName,
+                            metadata.startDate,
+                            metadata.endDate,
+                            metadata.dayType,
+                            metadata.cycleDays,
+                            metadata.durationDays,
+                            metadata.eventTitle,
+                            resumeDate
+                        );
+                    }
                 }
 
-                // 중복 제거 및 날짜 정렬
-                const uniqueDates = [...new Set(events[scheduleName].dates.map(e => e.date))].sort();
-                events[scheduleName].dates = uniqueDates.map(date => {
-                    const originalEvent = originalEvents[scheduleName].dates.find(e => e.date === date) || 
-                                         events[scheduleName].dates.find(e => e.date === date);
-                    return { date, title: originalEvent.title || metadata.eventTitle };
-                });
+                // 날짜 정렬 (중복은 이미 addSchedule에서 처리)
+                events[scheduleName].dates.sort((a, b) => new Date(a.date) - new Date(b.date));
             }
 
             localStorage.setItem('events', JSON.stringify(events));
