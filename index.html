@@ -1,166 +1,26 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <title>월별 일정관리</title>
-    <style>
-        body { font-family: Arial, sans-serif; text-align: center; padding: 20px; background-color: #f5f5f5; }
-        .container { max-width: 800px; margin: 0 auto; }
-        h1 { color: #333; }
-        .calendar { display: inline-block; text-align: left; }
-        .calendar table { border-collapse: collapse; margin: 20px auto; background-color: white; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        .calendar th, .calendar td { width: 100px; height: 100px; text-align: center; border: 1px solid #ddd; vertical-align: top; }
-        .calendar th { background-color: #4CAF50; color: white; }
-        .calendar .weekday { background-color: #ffffff; }
-        .calendar .weekend { background-color: #ffcccb; }
-        .calendar .holiday { background-color: #ffcccb; }
-        .calendar .saturday { background-color: #add8e6; }
-        .calendar .today { background-color: #add8e6 !important; border: 2px solid #1e90ff; }
-        .calendar .event { font-weight: bold; color: #d81b60; font-size: 12px; }
-        select, button, a { padding: 5px; margin: 5px; border-radius: 3px; }
-        button { background-color: #4CAF50; color: white; border: none; cursor: pointer; }
-        button:hover { background-color: #45a049; }
-        a { text-decoration: none; color: #4CAF50; }
-        a:hover { color: #45a049; }
-        #events { text-align: left; max-width: 400px; margin: 20px auto; }
-    </style>
+  <meta charset="UTF-8">
+  <title>월별 일정관리</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="container">
-        <h1>월별 일정관리</h1>
-        <div>
-            <label>연도:</label>
-            <select id="year"></select>
-            <button onclick="changeMonth(-1)">←</button>
-            <label>월:</label>
-            <select id="month"></select>
-            <button onclick="changeMonth(1)">→</button>
-            <button onclick="displayCalendar()">달력 보기</button>
-            <a href="manage.html">일정 및 공휴일 관리</a>
-        </div>
-        <div class="calendar" id="calendar"></div>
-        <div id="events">일정 목록:<br></div>
-    </div>
+  <h2>월별 일정관리</h2>
 
-    <script>
-        // KST 기준 오늘 날짜 설정
-        const today = new Date();
-        const todayStr = new Intl.DateTimeFormat('ko-KR', {
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            timeZone: 'Asia/Seoul'
-        }).format(today).replace(/\. /g, '-').replace(/\./, '');
-        console.log('Today (KST):', todayStr);
+  <div class="controls">
+    <label>연도:
+      <select id="year-select"></select>
+    </label>
+    <label>월:
+      <select id="month-select"></select>
+    </label>
+    <button onclick="renderCalendar()">달력 보기</button>
+    <a href="manage.html">일정 및 공휴일 관리</a>
+  </div>
 
-        let events = JSON.parse(localStorage.getItem('events')) || {};
-        let holidays = {};
+  <div id="calendar"></div>
 
-        // 공휴일 데이터 가져오기
-        async function fetchHolidays(year) {
-            try {
-                const response = await fetch(`holidays_${year}.json`);
-                if (!response.ok) throw new Error('Failed to fetch holidays');
-                const data = await response.json();
-                localStorage.setItem(`holidays_${year}`, JSON.stringify(data));
-                return data;
-            } catch (error) {
-                console.error('Error fetching holidays:', error);
-                return JSON.parse(localStorage.getItem(`holidays_${year}`)) || {};
-            }
-        }
-
-        // 공휴일과 사용자 정의 공휴일 병합
-        function mergeHolidays(year) {
-            const fetchedHolidays = JSON.parse(localStorage.getItem(`holidays_${year}`)) || {};
-            const customHolidays = JSON.parse(localStorage.getItem('custom_holidays')) || {};
-            return { ...fetchedHolidays, ...customHolidays };
-        }
-
-        // 연도 및 월 선택 초기화
-        const yearSelect = document.getElementById('year');
-        const monthSelect = document.getElementById('month');
-        for (let y = today.getFullYear(); y <= today.getFullYear() + 2; y++) {
-            yearSelect.innerHTML += `<option value="${y}" ${y === today.getFullYear() ? 'selected' : ''}>${y}</option>`;
-        }
-        for (let m = 1; m <= 12; m++) {
-            monthSelect.innerHTML += `<option value="${m}" ${m === today.getMonth() + 1 ? 'selected' : ''}>${m}</option>`;
-        }
-
-        // 월 변경
-        async function changeMonth(delta) {
-            let year = parseInt(yearSelect.value);
-            let month = parseInt(monthSelect.value) - 1 + delta;
-            if (month < 0) {
-                month = 11;
-                year--;
-            } else if (month > 11) {
-                month = 0;
-                year++;
-            }
-            if (year >= today.getFullYear() && year <= today.getFullYear() + 2) {
-                yearSelect.value = year;
-                monthSelect.value = month + 1;
-                holidays = await fetchHolidays(year);
-                holidays = mergeHolidays(year);
-                displayCalendar();
-            }
-        }
-
-        // 달력 표시
-        async function displayCalendar() {
-            const year = parseInt(yearSelect.value);
-            const month = parseInt(monthSelect.value) - 1;
-            holidays = mergeHolidays(year);
-            const firstDay = new Date(year, month, 1);
-            const lastDay = new Date(year, month + 1, 0);
-            const daysInMonth = lastDay.getDate();
-            const startDay = firstDay.getDay();
-
-            let html = '<table><tr><th>일</th><th>월</th><th>화</th><th>수</th><th>목</th><th>금</th><th>토</th></tr><tr>';
-            for (let i = 0; i < startDay; i++) html += '<td></td>';
-            for (let day = 1; day <= daysInMonth; day++) {
-                const date = new Date(year, month, day);
-                const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                let cellClass = dateStr === todayStr ? 'today' :
-                                date.getDay() === 6 ? 'saturday' :
-                                dateStr in holidays ? 'holiday' :
-                                date.getDay() === 0 ? 'weekend' : 'weekday';
-                let eventText = dateStr in holidays ? `<br><span class="event">${holidays[dateStr]}</span>` : '';
-                for (let schedule in events) {
-                    const event = events[schedule].dates.find(e => e.date === dateStr);
-                    if (event) eventText += `<br><span class="event">${event.title} (${schedule})</span>`;
-                }
-                html += `<td class="${cellClass}">${day}${eventText}</td>`;
-                if ((startDay + day) % 7 === 0) html += '</tr><tr>';
-            }
-            html += '</tr></table>';
-            document.getElementById('calendar').innerHTML = html;
-
-            let eventsText = '일정 목록:<br>';
-            for (let schedule in events) {
-                events[schedule].dates.forEach(event => {
-                    if (event.date.startsWith(`${year}-${String(month + 1).padStart(2, '0')}`)) {
-                        eventsText += `${event.date} (${schedule}): ${event.title}<br>`;
-                    }
-                });
-            }
-            document.getElementById('events').innerHTML = eventsText;
-        }
-
-        // 초기화 및 이벤트 리스너
-        window.addEventListener('load', async () => {
-            events = JSON.parse(localStorage.getItem('events')) || {};
-            holidays = await fetchHolidays(yearSelect.value);
-            holidays = mergeHolidays(yearSelect.value);
-            displayCalendar();
-        });
-        yearSelect.addEventListener('change', async () => {
-            holidays = await fetchHolidays(yearSelect.value);
-            holidays = mergeHolidays(yearSelect.value);
-            displayCalendar();
-        });
-        monthSelect.addEventListener('change', displayCalendar);
-    </script>
+  <script src="calendar.js"></script>
 </body>
 </html>
