@@ -1,0 +1,40 @@
+body {
+  font-family: Arial, sans-serif;
+  text-align: center;
+  background: #f0f0f0;
+}
+.controls {
+  margin-bottom: 20px;
+}
+#calendar {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 1px;
+  width: 90%;
+  margin: 0 auto;
+  background: #ccc;
+}
+.day {
+  background: white;
+  padding: 10px;
+  height: 100px;
+  position: relative;
+  cursor: pointer;
+}
+.day.sunday {
+  background: #ffe6e6;
+}
+.day.saturday {
+  background: #e6f0ff;
+}
+.day.holiday {
+  background: #ffcccc;
+}
+.day .date {
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+.event {
+  font-size: 0.8em;
+  color: #d00;
+}
