@@ -1,71 +1,50 @@
-const holidays = {
-  "2025-05-05": "어린이날,부처님 오신 날",
-  "2025-05-06": "대체공휴일(부처님 오신 날)"
-};
+document.addEventListener('DOMContentLoaded', () => {
+  const calendar = document.getElementById('calendar');
+  const today = moment();
+  const year = today.year();
+  const month = today.month(); // 0-based
 
-function renderCalendar() {
-  const calendar = document.getElementById("calendar");
-  calendar.innerHTML = "";
+  // 공휴일 데이터 로드
+  fetch('holidays.json')
+    .then(response => response.json())
+    .then(holidays => renderCalendar(year, month, holidays))
+    .catch(error => console.error('Error loading holidays:', error));
 
-  const year = document.getElementById("year-select").value;
-  const month = document.getElementById("month-select").value;
-  const monthStr = String(month).padStart(2, '0');
+  function renderCalendar(year, month, holidays) {
+    calendar.innerHTML = '';
+    const firstDay = moment([year, month]);
+    const daysInMonth = firstDay.daysInMonth();
+    const startDay = firstDay.day();
 
-  const date = new Date(year, month - 1, 1);
-  const firstDay = date.getDay();
-  const lastDate = new Date(year, month, 0).getDate();
+    // 요일 헤더
+    const days = ['일', '월', '화', '수', '목', '금', '토'];
+    days.forEach(day => {
+      const div = document.createElement('div');
+      div.textContent = day;
+      div.className = 'day font-bold';
+      calendar.appendChild(div);
+    });
 
-  for (let i = 0; i < firstDay; i++) {
-    const emptyDiv = document.createElement("div");
-    emptyDiv.className = "day";
-    calendar.appendChild(emptyDiv);
+    // 빈 칸
+    for (let i = 0; i < startDay; i++) {
+      calendar.appendChild(document.createElement('div'));
+    }
+
+    // 날짜
+    const schedules = JSON.parse(localStorage.getItem('schedules') || '[]');
+    for (let day = 1; day <= daysInMonth; day++) {
+      const date = moment([year, month, day]).format('YYYY-MM-DD');
+      const div = document.createElement('div');
+      div.className = 'day';
+      if (moment([year, month, day]).day() === 0) div.classList.add('weekend-sunday');
+      if (moment([year, month, day]).day() === 6) div.classList.add('weekend-saturday');
+      if (holidays.some(h => h.date === date)) div.classList.add('holiday');
+      if (schedules.some(s => s.date === date)) div.classList.add('has-schedule');
+      div.textContent = day;
+      div.addEventListener('click', () => {
+        window.location.href = `add-schedule.html?date=${date}`;
+      });
+      calendar.appendChild(div);
+    }
   }
-
-  for (let d = 1; d <= lastDate; d++) {
-    const dayDiv = document.createElement("div");
-    const fullDate = `${year}-${monthStr}-${String(d).padStart(2, '0')}`;
-    dayDiv.className = "day";
-    const weekDay = new Date(year, month - 1, d).getDay();
-    if (weekDay === 0) dayDiv.classList.add("sunday");
-    if (weekDay === 6) dayDiv.classList.add("saturday");
-    if (holidays[fullDate]) dayDiv.classList.add("holiday");
-
-    dayDiv.innerHTML = `
-      <div class="date">${d}</div>
-      ${holidays[fullDate] ? `<div class="event">${holidays[fullDate]}</div>` : ""}
-    `;
-
-    dayDiv.onclick = () => {
-      window.location.href = `add_event.html?date=${fullDate}`;
-    };
-
-    calendar.appendChild(dayDiv);
-  }
-}
-
-function populateSelectors() {
-  const yearSelect = document.getElementById("year-select");
-  const monthSelect = document.getElementById("month-select");
-
-  const now = new Date();
-  for (let y = 2020; y <= 2030; y++) {
-    const option = document.createElement("option");
-    option.value = y;
-    option.text = y;
-    if (y === now.getFullYear()) option.selected = true;
-    yearSelect.appendChild(option);
-  }
-
-  for (let m = 1; m <= 12; m++) {
-    const option = document.createElement("option");
-    option.value = String(m).padStart(2, '0');
-    option.text = m;
-    if (m === now.getMonth() + 1) option.selected = true;
-    monthSelect.appendChild(option);
-  }
-}
-
-document.addEventListener("DOMContentLoaded", () => {
-  populateSelectors();
-  renderCalendar();
 });
